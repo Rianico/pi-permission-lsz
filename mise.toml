@@ -1,5 +1,10 @@
+min_version = "2026.7.4"
+
 [settings]
 experimental = true
+
+[hooks]
+enter = "mise bootstrap --yes --quiet"
 
 [tools]
 actionlint = "1.7.12"
@@ -10,7 +15,11 @@ _.path = ["{{config_root}}/node_modules/.bin"]
 
 [tasks.bootstrap]
 description = "Install project dependencies"
-run = "npm install --silent --no-fund --no-audit"
+run = [
+    "npm install --silent --no-fund --no-audit",
+    # pi must always resolve to the global install, never this repo's copy
+    "rm -f node_modules/.bin/pi",
+]
 sources = ["package.json", "package-lock.json"]
 outputs = ["node_modules/.package-lock.json"]
 quiet = true

@@ -46,14 +46,12 @@ describe("permission state entry renderer", () => {
     expect(rendered).toContain("Permissions · 2 checks changed · 1/2 active");
   });
 
-  it.each([
-    { hooks: { git: false } },
-    { enabled: false },
-    { hooks: [] },
-    undefined,
-  ])("hides legacy, no-op, or malformed state %#", (data) => {
-    expect(createComponent(data, false)).toBeUndefined();
-  });
+  it.each([{ hooks: { git: false } }, { enabled: false }, { hooks: [] }, undefined])(
+    "hides legacy, no-op, or malformed state %#",
+    (data) => {
+      expect(createComponent(data, false)).toBeUndefined();
+    },
+  );
 });
 
 function render(data: unknown, expanded: boolean): string {

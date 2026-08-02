@@ -84,13 +84,12 @@ describe("permission state restore", () => {
     expect(restored).toEqual({ abc: false, def: true });
   });
 
-  it.each([
-    { enabled: false },
-    { hooks: { abc: false } },
-    { hooks: [{ id: "abc" }] },
-  ])("ignores legacy or malformed state $state", (state) => {
-    expect(restorePermissionsState(createContext([state]))).toEqual({});
-  });
+  it.each([{ enabled: false }, { hooks: { abc: false } }, { hooks: [{ id: "abc" }] }])(
+    "ignores legacy or malformed state $state",
+    (state) => {
+      expect(restorePermissionsState(createContext([state]))).toEqual({});
+    },
+  );
 
   it("ignores removed hooks, restores current hooks, and defaults new hooks enabled", () => {
     const [removed, current, added] = assignPermissionHookIds([

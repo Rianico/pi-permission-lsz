@@ -2,6 +2,18 @@
 
 # Release notes
 
+## 0.10.0
+
+Adds a don't-ask-again prompt outcome.
+
+### Added
+
+- Added a "Don't ask again" outcome to permission prompts: `ctrl+s` approves the tool call and disables the deciding permission check for the rest of the session branch, exactly as if you had approved and then run `/permissions disable <name>`. Any note drafted on the approve choice travels with the approval.
+
+### Changed
+
+- Mirror-environment dependency pins now live only on the `downgrade` branch; the published package no longer carries `overrides`.
+
 ## 0.9.0
 
 Adds guided permission authoring.

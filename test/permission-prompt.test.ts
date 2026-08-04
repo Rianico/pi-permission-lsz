@@ -16,6 +16,7 @@ const KEY = {
   backspace: "\x7f",
   ctrlR: "\x12",
   ctrlG: "\x07",
+  ctrlS: "\x13",
 } as const;
 
 const LABELS = { approveLabel: "Authorize", rejectLabel: "Abort", editLabel: "Edit" };
@@ -286,5 +287,56 @@ describe("permission prompt edit mode", () => {
     h.type("2");
     await flush();
     expect(h.result()).toEqual({ kind: "reject", abort: true });
+  });
+});
+
+describe("permission prompt don't ask again", () => {
+  it("allows for the session from select mode", async () => {
+    const h = mount({ command: "git commit -m hi" });
+    h.type(KEY.ctrlS);
+    await flush();
+    expect(h.result()).toEqual({ kind: "allow", forSession: true });
+  });
+
+  it("carries the Authorize note drafted before returning to select mode", async () => {
+    const h = mount({ command: "git commit -m hi" });
+    h.type(KEY.tab, "w", "h", "y", KEY.shiftTab, KEY.ctrlS);
+    await flush();
+    expect(h.result()).toEqual({ kind: "allow", forSession: true, note: "why" });
+  });
+
+  it("commits mid-note without waiting for the note to be closed", async () => {
+    const h = mount({ command: "git commit -m hi" });
+    h.type(KEY.tab, "w", "h", "y", KEY.ctrlS);
+    await flush();
+    expect(h.result()).toEqual({ kind: "allow", forSession: true, note: "why" });
+  });
+
+  it("uses the Authorize note while a note on another choice is being edited", async () => {
+    const h = mount({ command: "git commit -m hi" });
+    // note on Authorize, then a competing note on Abort; only the first travels
+    h.type(KEY.tab, "y", "e", "s", KEY.shiftTab);
+    h.type(KEY.down, KEY.down, KEY.tab, "n", "o", KEY.ctrlS);
+    await flush();
+    expect(h.result()).toEqual({ kind: "allow", forSession: true, note: "yes" });
+  });
+
+  it("ignores ctrl+s once inside edit mode", async () => {
+    const h = mount({ command: "git commit -m hi" });
+    h.type("2", KEY.ctrlS);
+    await flush();
+    expect(h.result()).toBeUndefined();
+  });
+
+  it("advertises the outcome on a two-line select legend", () => {
+    const h = mount({ command: "git commit -m hi" });
+    const lines = h.render();
+    const legendStart = lines.findIndex((line) => line.includes("↑↓"));
+
+    expect(lines[legendStart]).toContain("ctrl+s don't ask again");
+    expect(lines[legendStart]).toContain("enter confirm");
+    expect(lines[legendStart + 1]).toContain("tab add note");
+    expect(lines[legendStart + 1]).toContain("shift+tab close");
+    expect(lines[legendStart + 1]).toContain("esc abort");
   });
 });

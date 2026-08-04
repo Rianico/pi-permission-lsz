@@ -17,6 +17,7 @@
 - Prompt: The text and labels shown to the Approver for a request, in totality
 - Approve/Reject: Prompt outcomes where the Approver accepts or rejects an execution
 - Edit: A prompt outcome where the Approver rewrites a bash command before execution; implies approval and skips hook re-evaluation
+- Don't ask again: A prompt outcome that approves the execution and disables the deciding hook for the rest of the session branch
 - Note: Approver-authored text attached to a prompt outcome and relayed to the agent alongside the tool result
 - Permission root: The directory that contains the permission module or permission package currently handling a hook
 - Custom tool: A non-built-in Pi tool registered by an extension

@@ -5,7 +5,7 @@ import {
   isToolCallEventType,
   type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
-import { getEnabledPermissionHooks } from "../src/enablement.js";
+import { getEnabledPermissionHooks, setPermissionHookEnabled } from "../src/enablement.js";
 import { evaluatePermissionHooks, type PermissionHookFailure } from "../src/evaluator.js";
 import type { PendingApprovalNotes } from "../src/pending-approvals.js";
 import {
@@ -17,6 +17,7 @@ import {
   formatHumanFacingEditNotification,
   formatHumanFacingPermissionPrompt,
   formatHumanFacingRejectionNotification,
+  formatHumanFacingSessionDisableNotification,
   type PermissionPromptInput,
 } from "../src/presentation.js";
 import { restorePermissionsState } from "../src/state.js";
@@ -24,6 +25,7 @@ import { permissionToolInputFromToolCall } from "../src/tool-input.js";
 import { type PermissionGateResult, showPermissionGate } from "../src/ui/permission-prompt.js";
 import { syncPermissionsStatus } from "../src/ui/status.js";
 import { loadRuntimeHooks, notifyLoadErrors, type PermissionsRuntimeState } from "./runtime.js";
+import { commitEnablement } from "./shared/toggle.js";
 
 export function registerPermissionHooks(
   pi: ExtensionAPI,
@@ -129,7 +131,21 @@ export function registerPermissionHooks(
       });
     }
 
-    return handlePromptResult(ctx, event, bashEvent, hook.name, result, pendingApprovalNotes);
+    const outcome = handlePromptResult(
+      ctx,
+      event,
+      bashEvent,
+      hook.name,
+      result,
+      pendingApprovalNotes,
+    );
+
+    if (result.kind === "allow" && result.forSession) {
+      commitEnablement(pi, ctx, state, setPermissionHookEnabled(state.enablement, hook, false));
+      ctx.ui.notify(formatHumanFacingSessionDisableNotification(hook.name), "warning");
+    }
+
+    return outcome;
   });
 }
 

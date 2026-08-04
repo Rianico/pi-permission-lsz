@@ -283,6 +283,8 @@ Approving runs the tool. If the approver adds a note, that note is passed back i
 
 Rejecting blocks the tool. A rejection with a note tells the agent how to proceed; a rejection without a note aborts the current turn. Hitting `esc` also aborts the turn.
 
+`ctrl+s` approves and disables the deciding permission check for the rest of the session branch, exactly as if you had approved and then run `/permissions disable <name>`. Any note drafted on the approve choice still travels with the approval.
+
 For `bash` tool calls, **Edit** opens the command and an optional note in a multiline editor.
 
 ![Editing a bash command before approval](images/edit-command.png)

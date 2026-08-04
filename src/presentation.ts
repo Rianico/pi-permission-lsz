@@ -142,6 +142,10 @@ export function formatAgentFacingToolResultNote(note: PendingToolResultNote): st
     : formatAgentFacingApprovalNote(note);
 }
 
+export function formatHumanFacingSessionDisableNotification(hookName: string): string {
+  return `Authorization no longer required (${hookName})... be careful`;
+}
+
 export function formatHumanFacingEditNotification(hookName: string): string {
   return `Command edited (${hookName})`;
 }

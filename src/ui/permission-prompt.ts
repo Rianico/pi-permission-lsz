@@ -23,7 +23,7 @@ import { DraftInput, sanitizeDraftInput } from "./draft-input.js";
 import { openExternalEditor } from "./external-editor.js";
 
 export type PermissionGateResult =
-  | { kind: "allow"; note?: string }
+  | { kind: "allow"; forSession?: true; note?: string }
   | { kind: "reject"; abort: boolean; note?: string }
   | { kind: "edit"; command: string; note?: string };
 
@@ -140,6 +140,13 @@ class PermissionPromptOverlay implements Focusable {
       return;
     }
 
+    // Reachable only past the edit-mode dispatch above, which is what confines
+    // don't-ask-again to select mode — with or without a note open.
+    if (this.isDontAskAgain(data)) {
+      this.commitDontAskAgain();
+      return;
+    }
+
     if (this.editing) {
       this.handleEditingInput(data);
       return;
@@ -175,7 +182,7 @@ class PermissionPromptOverlay implements Focusable {
       "",
       ...this.renderOptions(bodyWidth),
       "",
-      this.renderSelectLegend(),
+      ...this.renderSelectLegend(),
     ];
   }
 
@@ -384,6 +391,10 @@ class PermissionPromptOverlay implements Focusable {
     return getKeybindings().matches(data, "tui.select.confirm") || matchesKey(data, "return");
   }
 
+  private isDontAskAgain(data: string): boolean {
+    return matchesKey(data, "ctrl+s");
+  }
+
   private isCancel(data: string): boolean {
     return getKeybindings().matches(data, "tui.select.cancel") || matchesKey(data, "escape");
   }
@@ -403,6 +414,16 @@ class PermissionPromptOverlay implements Focusable {
     // already carries a draft note.
     this.selected = next;
     this.editing = false;
+  }
+
+  // Don't ask again always speaks with the Authorize note, whatever choice is
+  // highlighted or being annotated: it is an approval, and notes drafted on Edit
+  // or Abort belong to outcomes the approver is walking away from.
+  private commitDontAskAgain(): void {
+    const note = this.drafts.yes.trimmed;
+    this.done(
+      note ? { kind: "allow", forSession: true, note } : { kind: "allow", forSession: true },
+    );
   }
 
   private commitSelection(): void {
@@ -518,14 +539,19 @@ class PermissionPromptOverlay implements Focusable {
     });
   }
 
-  private renderSelectLegend(): string {
+  private renderSelectLegend(): string[] {
     return [
-      hint(this.theme, "↑↓", "select"),
-      hint(this.theme, "enter", "confirm"),
-      hint(this.theme, "tab", "add note"),
-      hint(this.theme, "shift+tab", "close"),
-      hint(this.theme, "esc", "abort"),
-    ].join("  ");
+      [
+        hint(this.theme, "↑↓", "select"),
+        hint(this.theme, "enter", "confirm"),
+        hint(this.theme, "ctrl+s", "don't ask again"),
+      ].join("  "),
+      [
+        hint(this.theme, "tab", "add note"),
+        hint(this.theme, "shift+tab", "close"),
+        hint(this.theme, "esc", "abort"),
+      ].join("  "),
+    ];
   }
 
   private renderEditLegend(): string[] {

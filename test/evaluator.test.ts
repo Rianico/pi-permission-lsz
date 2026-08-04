@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RegisteredPermissionHook } from "../src/api.js";
+import { assignPermissionHookIds } from "../src/enablement.js";
 import { evaluatePermissionHooks } from "../src/evaluator.js";
 import { matchTool } from "../src/match-tool.js";
 import type { PermissionInput } from "../src/tool-input.js";
@@ -30,7 +30,7 @@ const bashInput: PermissionInput = {
 
 describe("evaluatePermissionHooks", () => {
   it("lets handlers filter by returning undefined", async () => {
-    const hooks: RegisteredPermissionHook[] = [
+    const hooks = assignPermissionHookIds([
       {
         name: "read-only",
         description: "only blocks reads",
@@ -50,7 +50,7 @@ describe("evaluatePermissionHooks", () => {
         modulePath: "/user/permissions/fallback.ts",
         handler: () => ({ decision: "request" }),
       },
-    ];
+    ]);
 
     const result = await evaluatePermissionHooks(hooks, {
       cwd: bashInput.cwd,
@@ -63,7 +63,7 @@ describe("evaluatePermissionHooks", () => {
   });
 
   it("continues after undefined and stops at the first terminal decision", async () => {
-    const hooks: RegisteredPermissionHook[] = [
+    const hooks = assignPermissionHookIds([
       {
         name: "first",
         description: "does not decide",
@@ -91,7 +91,7 @@ describe("evaluatePermissionHooks", () => {
         modulePath: "/user/permissions/third.ts",
         handler: () => ({ decision: "request" }),
       },
-    ];
+    ]);
 
     const result = await evaluatePermissionHooks(hooks, {
       cwd: readInput.cwd,
@@ -103,7 +103,7 @@ describe("evaluatePermissionHooks", () => {
   });
 
   it("skips throwing hooks and reports the failures", async () => {
-    const hooks: RegisteredPermissionHook[] = [
+    const hooks = assignPermissionHookIds([
       {
         name: "broken",
         description: "throws",
@@ -122,7 +122,7 @@ describe("evaluatePermissionHooks", () => {
         modulePath: "/user/permissions/decider.ts",
         handler: () => ({ decision: "request" }),
       },
-    ];
+    ]);
 
     const result = await evaluatePermissionHooks(hooks, {
       cwd: bashInput.cwd,

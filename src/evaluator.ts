@@ -1,4 +1,5 @@
-import type { PermissionRequestPrompt, RegisteredPermissionHook } from "./api.js";
+import type { PermissionRequestPrompt } from "./api.js";
+import type { RuntimePermissionHook } from "./enablement.js";
 import type { PermissionInput, PermissionToolInput } from "./tool-input.js";
 
 export type TerminalPermissionDecision =
@@ -6,13 +7,13 @@ export type TerminalPermissionDecision =
   | { decision: "request"; prompt?: PermissionRequestPrompt };
 
 export interface PermissionEvaluation {
-  hook: RegisteredPermissionHook;
+  hook: RuntimePermissionHook;
   input: PermissionInput;
   decision: TerminalPermissionDecision;
 }
 
 export interface PermissionHookFailure {
-  hook: RegisteredPermissionHook;
+  hook: RuntimePermissionHook;
   input: PermissionInput;
   error: unknown;
 }
@@ -28,7 +29,7 @@ export interface PermissionEvaluationInput {
 }
 
 export async function evaluatePermissionHooks(
-  hooks: readonly RegisteredPermissionHook[],
+  hooks: readonly RuntimePermissionHook[],
   input: PermissionEvaluationInput,
 ): Promise<PermissionEvaluationResult> {
   const failures: PermissionHookFailure[] = [];

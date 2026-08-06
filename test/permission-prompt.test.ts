@@ -266,19 +266,30 @@ describe("permission prompt edit mode", () => {
   it("previews the edited command plain under Edit, the highlighted original otherwise", async () => {
     const h = mount({ command: "git stash lst" }, { highlight: /git stash \w+/ });
     // Accept highlighted: original with its frozen highlight
-    expect(h.render().join("\n")).toContain("bash: [[git stash lst]]");
+    expect(h.render().join("\n")).toContain("[[git stash lst]]");
 
     // edit, esc back with Edit highlighted: the live buffer, no highlight
     h.type("2", "X", KEY.escape);
     const edit = h.render().join("\n");
-    expect(edit).toContain("bash: git stash lstX");
+    expect(edit).toContain("git stash lstX");
     expect(edit).not.toContain("[[");
 
     // move up to Accept: the original with its highlight again, not the edit
     h.type(KEY.up);
     const accept = h.render().join("\n");
-    expect(accept).toContain("bash: [[git stash lst]]");
+    expect(accept).toContain("[[git stash lst]]");
     expect(accept).not.toContain("git stash lstX");
+  });
+
+  it("frames the detail in an inner box labeled with the tool name", () => {
+    const h = mount({ command: "git commit -m hi" });
+    const lines = h.render();
+    const top = lines.findIndex((line) => line.includes("╭─ bash "));
+    const bottom = lines.findIndex((line) => line.includes("╰"));
+
+    expect(top).toBeGreaterThan(-1);
+    expect(bottom).toBeGreaterThan(top);
+    expect(lines.slice(top + 1, bottom).join("\n")).toContain("git commit -m hi");
   });
 
   it("offers no edit choice for non-bash tool calls", async () => {
@@ -287,6 +298,59 @@ describe("permission prompt edit mode", () => {
     h.type("2");
     await flush();
     expect(h.result()).toEqual({ kind: "reject", abort: true });
+  });
+});
+
+describe("permission prompt body scrolling", () => {
+  const longCommand = `git commit -m "${"word ".repeat(400)}TAIL_MARKER"`;
+
+  it("windows a tall body so the options and legend stay on screen", () => {
+    const h = mount({ command: longCommand });
+    const lines = h.render();
+    const text = lines.join("\n");
+
+    // fits the 40-row terminal from the mount harness
+    expect(lines.length).toBeLessThanOrEqual(38);
+    expect(text).toContain("Authorize");
+    expect(text).toContain("↑↓ select");
+    expect(text).toContain("f/b scroll");
+    expect(text).toContain("↓");
+    expect(text).toContain("more");
+    expect(text).not.toContain("TAIL_MARKER");
+  });
+
+  it("pages forward with f and back with b, marking off-screen lines in the borders", () => {
+    const h = mount({ command: longCommand });
+    h.render(); // establish the window before scrolling
+
+    h.type("f");
+    const scrolled = h.render().join("\n");
+    expect(scrolled).toContain("TAIL_MARKER");
+    expect(scrolled).toMatch(/↑ \d+/);
+
+    h.type("b");
+    const back = h.render().join("\n");
+    expect(back).not.toContain("TAIL_MARKER");
+    expect(back).toMatch(/↓ \d+ more/);
+    expect(back).not.toMatch(/↑ \d+/);
+  });
+
+  it("leaves f/b inert and unwindowed when the body fits", async () => {
+    const h = mount({ command: "git commit -m hi" });
+    h.render();
+    h.type("f", "b");
+    const text = h.render().join("\n");
+    expect(text).not.toContain("f/b scroll");
+    expect(text).not.toContain("more");
+    expect(h.result()).toBeUndefined();
+  });
+
+  it("still types f and b into an open note draft", async () => {
+    const h = mount({ command: longCommand });
+    h.render();
+    h.type(KEY.tab, "f", "b", KEY.enter);
+    await flush();
+    expect(h.result()).toEqual({ kind: "allow", note: "fb" });
   });
 });
 

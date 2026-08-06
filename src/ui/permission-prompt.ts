@@ -18,7 +18,7 @@ import {
 } from "@earendil-works/pi-tui";
 import type { PermissionRequestLabels } from "../api.js";
 import type { PermissionHighlight } from "../highlight.js";
-import { formatToolDetailLine } from "../presentation.js";
+import { formatHighlightedDetail } from "../presentation.js";
 import { DraftInput, sanitizeDraftInput } from "./draft-input.js";
 import { openExternalEditor } from "./external-editor.js";
 
@@ -91,6 +91,9 @@ class PermissionPromptOverlay implements Focusable {
   private tabUsed = false;
   private editField: EditField = "command";
   private warning: string | null = null;
+  private bodyScroll = 0;
+  private bodyPageSize = 0;
+  private bodyMaxScroll = 0;
   // Single-slot stash for the ctrl+r original/edits toggle. Non-null means the
   // buffer currently shows the pristine original and holds the approver's edits
   // in reserve; null means the buffer holds the live draft.
@@ -172,40 +175,93 @@ class PermissionPromptOverlay implements Focusable {
   }
 
   private renderSelectMode(bodyWidth: number): string[] {
+    const top = [this.theme.fg("accent", this.theme.bold(this.view.name)), ""];
     const header = this.view.header ? [...wrapParagraphs(this.view.header, bodyWidth), ""] : [];
+    const options = this.renderOptions(bodyWidth);
+    // The legend advertises f/b only when the detail overflows, so it is
+    // rendered after the detail box settles the scroll state. Its line count is
+    // constant either way, so the height budget below stays honest.
+    const bottomLineCount = 1 + options.length + 1 + 2;
+    const detail = this.renderDetailBox(bodyWidth, top.length + header.length + bottomLineCount);
+
+    return [...top, ...header, ...detail, "", ...options, "", ...this.renderSelectLegend()];
+  }
+
+  // The detail is the one agent-authored, unbounded element of the prompt, so
+  // it gets its own frame: an inner box labeled with the tool name, windowed to
+  // the terminal when the content is taller than the screen.
+  private renderDetailBox(bodyWidth: number, pinnedLines: number): string[] {
+    const boxWidth = Math.max(10, bodyWidth - 1);
+    const contentWidth = boxWidth - 4;
+    const { lines, above, below } = this.windowBody(
+      wrapParagraphs(this.detailText(), contentWidth),
+      pinnedLines + 2,
+    );
+
+    const border = (text: string) => this.theme.fg("borderMuted", text);
+    const edge = (lead: string, left: string, right: string) => {
+      const fill = "─".repeat(Math.max(0, boxWidth - 2 - visibleWidth(lead)));
+      return border(`${left}${lead}${fill}${right}`);
+    };
+    const row = (line: string) => `${border("│")} ${padRight(line, contentWidth)} ${border("│")}`;
+
+    // The off-screen tag pins to the bottom-left so it never jumps around;
+    // only the arrows change with scroll position.
+    const offscreen = [above > 0 ? `↑ ${above}` : "", below > 0 ? `↓ ${below}` : ""]
+      .filter(Boolean)
+      .join(" ");
 
     return [
-      this.theme.fg("accent", this.theme.bold(this.view.name)),
-      "",
-      ...header,
-      ...wrapParagraphs(this.renderDetail(), bodyWidth),
-      "",
-      ...this.renderOptions(bodyWidth),
-      "",
-      ...this.renderSelectLegend(),
+      edge(`─ ${this.view.toolName} `, "╭", "╮"),
+      ...lines.map(row),
+      edge(offscreen ? `─ ${offscreen} more ` : "", "╰", "╯"),
     ];
   }
 
-  // Highlights are evidence attached to the one-time verdict about the command
-  // the agent proposed. They are computed once against that original command and
-  // never recomputed against or projected into the approver's edit buffer, so
-  // the select-mode detail line always shows the original.
-  // The detail line shows what the highlighted choice will run: the approver's
+  // The prompt replaces pi's editor at the bottom of the screen, so a body
+  // taller than the terminal pushes the options and legend out of the viewport.
+  // Window the body to what fits — everything around it stays pinned — and let
+  // f/b page through the rest.
+  // TODO: pi 0.84.0's fullscreen TUI mode routes mouse-wheel events to
+  // ScrollView components under the pointer. Once on ≥0.84.0, consider
+  // rebuilding the detail window as a ScrollView (overscroll "contain") so the
+  // wheel works there; f/b must remain for regular mode.
+  private windowBody(
+    body: string[],
+    pinnedLines: number,
+  ): { lines: string[]; above: number; below: number } {
+    const borderAndMargin = 4;
+    const available = Math.max(3, this.tui.terminal.rows - pinnedLines - borderAndMargin);
+
+    if (body.length <= available) {
+      this.bodyScroll = 0;
+      this.bodyPageSize = 0;
+      this.bodyMaxScroll = 0;
+      return { lines: body, above: 0, below: 0 };
+    }
+
+    this.bodyPageSize = available;
+    this.bodyMaxScroll = body.length - available;
+    this.bodyScroll = Math.min(this.bodyScroll, this.bodyMaxScroll);
+
+    const end = this.bodyScroll + available;
+    return {
+      lines: body.slice(this.bodyScroll, end),
+      above: this.bodyScroll,
+      below: body.length - end,
+    };
+  }
+
+  // The detail box shows what the highlighted choice will run: the approver's
   // live buffer under Edit, the agent's original otherwise. Highlights are
   // decision-scoped evidence about the original, so they are drawn only on it
   // and never projected onto the edit.
-  private renderDetail(): string {
-    const emphasize = (fragment: string) => this.theme.fg("warning", this.theme.bold(fragment));
+  private detailText(): string {
     if (this.selected === "edit" && this.editSession) {
-      const edited = this.editSession.editor.getExpandedText().trim();
-      return formatToolDetailLine(this.view.toolName, edited, undefined, emphasize);
+      return this.editSession.editor.getExpandedText().trim();
     }
-    return formatToolDetailLine(
-      this.view.toolName,
-      this.view.detail,
-      this.view.highlight,
-      emphasize,
-    );
+    const emphasize = (fragment: string) => this.theme.fg("warning", this.theme.bold(fragment));
+    return formatHighlightedDetail(this.view.detail, this.view.highlight, emphasize);
   }
 
   private renderEditMode(bodyWidth: number): string[] {
@@ -330,6 +386,16 @@ class PermissionPromptOverlay implements Focusable {
   }
 
   private handleSelectionInput(data: string): void {
+    if (this.bodyPageSize > 0 && matchesKey(data, "f")) {
+      this.scrollBodyBy(1);
+      return;
+    }
+
+    if (this.bodyPageSize > 0 && matchesKey(data, "b")) {
+      this.scrollBodyBy(-1);
+      return;
+    }
+
     if (matchesKey(data, "tab")) {
       this.tabUsed = true;
       this.editing = true;
@@ -356,6 +422,14 @@ class PermissionPromptOverlay implements Focusable {
     if (this.isConfirm(data)) {
       this.commitSelection();
     }
+  }
+
+  private scrollBodyBy(direction: 1 | -1): void {
+    this.bodyScroll = Math.min(
+      this.bodyMaxScroll,
+      Math.max(0, this.bodyScroll + direction * this.bodyPageSize),
+    );
+    this.tui.requestRender();
   }
 
   private choiceForNumberKey(data: string): PermissionChoice | undefined {
@@ -540,12 +614,15 @@ class PermissionPromptOverlay implements Focusable {
   }
 
   private renderSelectLegend(): string[] {
+    const firstLine = [hint(this.theme, "↑↓", "select")];
+    if (this.bodyPageSize > 0) firstLine.push(hint(this.theme, "f/b", "scroll"));
+    firstLine.push(
+      hint(this.theme, "enter", "confirm"),
+      hint(this.theme, "ctrl+s", "don't ask again"),
+    );
+
     return [
-      [
-        hint(this.theme, "↑↓", "select"),
-        hint(this.theme, "enter", "confirm"),
-        hint(this.theme, "ctrl+s", "don't ask again"),
-      ].join("  "),
+      firstLine.join("  "),
       [
         hint(this.theme, "tab", "add note"),
         hint(this.theme, "shift+tab", "close"),

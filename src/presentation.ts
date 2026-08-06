@@ -83,7 +83,7 @@ function identity(fragment: string): string {
   return fragment;
 }
 
-function formatHighlightedDetail(
+export function formatHighlightedDetail(
   detail: string,
   highlight: PermissionRequestPrompt["highlight"],
   emphasize: PermissionPromptEmphasis,

@@ -12,6 +12,10 @@ Absorbs the rtk command rewriting (previously a separate user extension) into th
 - `permissions.rtk` settings (`enabled`, `timeoutMs`) in `~/.pi/agent/settings.json`, plus the existing `RTK_DISABLED=1` env override. rtk is required to be `>= 0.23.0`; when missing or too old, rewriting disables with a one-time warning and the gates are unaffected.
 - Rewrites are fail-open and cached: a bounded 500-entry FIFO memo plus in-flight dedupe for parallel identical commands; timeout/kill/error leaves the original command unchanged.
 
+### Changed
+
+- Package renamed to `pi-permission-lsz` (self-maintained fork of `@thurstonsand/pi-permissions`); permission modules now import `pi-permission-lsz`.
+
 ## 0.10.0
 
 Adds a don't-ask-again prompt outcome.

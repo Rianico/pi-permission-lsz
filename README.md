@@ -1,11 +1,22 @@
-# @thurstonsand/pi-permissions
+# pi-permission-lsz
 
-`pi-permissions` adds a permissions gate for Pi tool calls. You can write small TypeScript modules that inspect a pending tool call and either let it pass, ask the approver, or block it before it runs.
+> **Thanks to [@thurstonsand](https://github.com/thurstonsand) and the original [pi-permissions](https://github.com/thurstonsand/pi-permissions) project.** This is a self-maintained fork of that excellent permission-gate design for Pi — all the core gating machinery, prompt UX, and authoring tooling come from the original.
+
+`pi-permission-lsz` adds a permissions gate for Pi tool calls. You can write small TypeScript modules that inspect a pending tool call and either let it pass, ask the approver, or block it before it runs.
+
+## Refinements over pi-permissions
+
+- **rtk command rewriting absorbed into the gate.** The standalone rtk extension rewrote every bash command to `rtk <command>` *before* the hooks evaluated it, so the gate saw program `rtk`, no hook matched, and every guard silently stopped firing. Here the gate always evaluates and prompts on the **original** command, and the `rtk` rewrite is applied only **after** the approver's verdict (allow / edit / don't-ask-again, or ungated calls). Rejected or blocked calls are never rewritten.
+- **Configurable via settings.** `permissions.rtk` in `~/.pi/agent/settings.json` (`enabled`, `timeoutMs`), plus the `RTK_DISABLED=1` env override. If rtk is missing or too old (`>= 0.23.0` required), rewriting disables with a one-time warning and the gates are unaffected.
+- **Fail-open and cached.** A bounded 500-entry FIFO memo plus in-flight dedupe mean repeated and parallel identical commands cost one rtk spawn each; a timeout, kill, or rtk error leaves the original command untouched and never blocks execution.
+- **Prompt accuracy.** The detail and highlights show the command the approver actually cares about — no `rtk` prefix.
+- **Runs from a single source.** No node_modules patches, no wrapper entries in the shell parser's shared defaults — `pi update` can't wipe the rtk integration.
+- **Test coverage.** 27 new tests (rtk probe/rewrite/cache/dedupe + gate flow integration) on top of the upstream suite.
 
 ## Install
 
 ```bash
-pi install npm:@thurstonsand/pi-permissions
+pi install git:github.com/Rianico/pi-permission-lsz
 ```
 
 Restart Pi after installing.
@@ -49,7 +60,7 @@ import {
   matchTool,
   request,
   type PermissionsAPI,
-} from "@thurstonsand/pi-permissions";
+} from "pi-permission-lsz";
 
 const GIT_COMMIT = /\bgit commit\b/;
 
@@ -152,7 +163,7 @@ import {
   request,
   type SimpleCommand,
   type PermissionsAPI,
-} from "@thurstonsand/pi-permissions";
+} from "pi-permission-lsz";
 
 function isDestructiveRemoval(cmd: SimpleCommand): boolean {
   return cmd.programName === "rm"
@@ -189,7 +200,7 @@ import {
   block,
   matchTool,
   type PermissionsAPI,
-} from "@thurstonsand/pi-permissions";
+} from "pi-permission-lsz";
 
 export default function permissions(api: PermissionsAPI) {
   api.onToolUse({
@@ -219,7 +230,7 @@ import {
   matchTool,
   request,
   type PermissionsAPI,
-} from "@thurstonsand/pi-permissions";
+} from "pi-permission-lsz";
 
 export default function permissions(api: PermissionsAPI) {
   api.onToolUse({

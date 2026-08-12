@@ -42,7 +42,7 @@ describe("loadPermissionHooksFromDir", () => {
     tempDirs.push(dir);
     writeFileSync(
       join(dir, "rules.ts"),
-      `import { matchTool } from "@thurstonsand/pi-permissions";
+      `import { matchTool } from "pi-permission-lsz";
 
       export default function permissions(api) {
         api.onToolUse({

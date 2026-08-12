@@ -56,7 +56,7 @@ Install dependencies inside that directory. Keep the dependency and lockfile own
 
 A top-level `.ts` module can import:
 
-- `@thurstonsand/pi-permissions`
+- `pi-permission-lsz`
 - Node built-ins through `node:*`
 - `@earendil-works/pi-agent-core`
 - `@earendil-works/pi-ai`, `@earendil-works/pi-ai/compat`, and `@earendil-works/pi-ai/oauth`

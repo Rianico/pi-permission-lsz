@@ -1,16 +1,16 @@
 {
-  "name": "@thurstonsand/pi-permissions",
+  "name": "pi-permission-lsz",
   "version": "0.1.0",
   "type": "module",
   "description": "Pi extension package for user, project, and package-level tool permission hooks",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thurstonsand/pi-permissions.git"
+    "url": "git+https://github.com/Rianico/pi-permission-lsz.git"
   },
-  "homepage": "https://github.com/thurstonsand/pi-permissions#readme",
+  "homepage": "https://github.com/Rianico/pi-permission-lsz#readme",
   "bugs": {
-    "url": "https://github.com/thurstonsand/pi-permissions/issues"
+    "url": "https://github.com/Rianico/pi-permission-lsz/issues"
   },
   "keywords": [
     "pi-package"

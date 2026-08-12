@@ -1,4 +1,4 @@
-import { block, matchTool, type PermissionsAPI } from "@thurstonsand/pi-permissions";
+import { block, matchTool, type PermissionsAPI } from "pi-permission-lsz";
 
 export default function permissions(api: PermissionsAPI) {
   api.onToolUse({

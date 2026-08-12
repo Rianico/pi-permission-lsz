@@ -1,4 +1,4 @@
-import { matchTool, type PermissionsAPI, request } from "@thurstonsand/pi-permissions";
+import { matchTool, type PermissionsAPI, request } from "pi-permission-lsz";
 
 export default function permissions(api: PermissionsAPI) {
   api.onToolUse({

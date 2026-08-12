@@ -298,6 +298,8 @@ Rejecting blocks the tool. A rejection with a note tells the agent how to procee
 
 For `bash` tool calls, **Edit** opens the command and an optional note in a multiline editor.
 
+When a hook matches a command via `matchCommand`, the matched program and subcommand words are automatically highlighted (bold) even inside a compound command — `ls xx; git commit -m "..."` shows `git commit` emphasized — so you can spot the guarded command at a glance. A hook's own `highlight` is merged on top of this, so it can still draw attention to specific arguments.
+
 ![Editing a bash command before approval](images/edit-command.png)
 
 ## Managing permissions

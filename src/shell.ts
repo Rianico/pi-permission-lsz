@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { basename } from "node:path";
 import { Language, Parser, type Node as SyntaxNode } from "web-tree-sitter";
 import { type PermissionDecision, request } from "./api.js";
-import type { HighlightSpan } from "./highlight.js";
+import { type HighlightSpan, highlightSpans, type PermissionHighlight } from "./highlight.js";
 import type { BashPermissionToolInput } from "./tool-input.js";
 
 export interface ParseShellCommandOptions {
@@ -167,11 +167,52 @@ export function matchCommand(
 
       matches.push(command);
       if (command.program) spans.push(command.program);
-      if (subcommand) spans.push(subcommand);
+      spans.push(...matchingSubcommandTokens(command, wantedSubcommands, spec));
     }
 
-    return matches.length ? spec.onMatch({ commands: matches, spans }) : undefined;
+    if (!matches.length) return undefined;
+    return mergeMatchedHighlight(spec.onMatch({ commands: matches, spans }), spans);
   };
+}
+
+// The identity of a matched command: the program plus every subcommand word
+// that contributed to the match (`gh issue create` for a spec matching
+// ["issue", "create"]). Rendered as the prompt's default highlight so the
+// guarded command is identifiable inside a compound command.
+function matchingSubcommandTokens(
+  command: SimpleCommand,
+  wanted: Set<string> | undefined,
+  spec: CommandSpec,
+): ShellToken[] {
+  if (!wanted) return [];
+  const positionals = command.positionals(tokenWalkOptions(spec.valueFlags));
+  if (spec.subcommandPosition === "any") {
+    return positionals.filter((token) => wanted.has(token.text));
+  }
+  const identity: ShellToken[] = [];
+  for (const token of positionals) {
+    if (!wanted.has(token.text)) break;
+    identity.push(token);
+  }
+  return identity;
+}
+
+// The matched command's identity spans always join the prompt highlight, so a
+// guarded command is never left un-emphasized. The hook's own highlight (any
+// form) is preserved and evaluated lazily per detail; only that part re-derives
+// when the approver edits the command — the identity spans stay anchored to the
+// original offsets.
+function mergeMatchedHighlight(
+  decision: PermissionDecision | undefined,
+  identity: readonly HighlightSpan[],
+): PermissionDecision | undefined {
+  if (decision?.decision !== "request") return decision;
+  const prompt = decision.prompt;
+  const highlight: PermissionHighlight = (detail) => [
+    ...(prompt?.highlight !== undefined ? highlightSpans(detail, prompt.highlight) : []),
+    ...identity,
+  ];
+  return { decision: "request", prompt: { ...prompt, highlight } };
 }
 
 function findMatchingSubcommand(

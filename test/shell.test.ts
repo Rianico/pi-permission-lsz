@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  block,
   type CommandMatch,
   gitValueFlags,
   highlightSpans,
@@ -196,5 +197,118 @@ describe("matchCommand", () => {
     })(bash("git status && )"));
 
     expect(decision?.decision).toBe("request");
+  });
+  it("keeps the hook's function highlight lazy inside the merged highlight", async () => {
+    const decision = await matchCommand({
+      program: "git",
+      subcommands: ["commit"],
+      onMatch: () =>
+        request({
+          highlight: (detail) => {
+            const at = detail.indexOf("x");
+            return at === -1 ? [] : [{ start: at, end: at + 1 }];
+          },
+        }),
+    })(bash("git commit x"));
+
+    if (decision?.decision !== "request") throw new Error("Expected request decision");
+    const highlight = decision.prompt?.highlight ?? [];
+
+    expect(highlightSpans("git commit x", highlight)).toEqual([
+      { start: 0, end: 3 },
+      { start: 4, end: 10 },
+      { start: 11, end: 12 },
+    ]);
+    // Simulated edit: the hook's part re-derives against the new command while
+    // the matched identity stays anchored to the original offsets.
+    expect(highlightSpans("git commit y", highlight)).toEqual([
+      { start: 0, end: 3 },
+      { start: 4, end: 10 },
+    ]);
+  });
+  it("auto-highlights the matched command identity when the hook gives no highlight", async () => {
+    const decision = await matchCommand({
+      program: "git",
+      subcommands: ["commit"],
+      onMatch: () => request(),
+    })(bash("ls xx; git commit -m x"));
+
+    expect(decision?.decision).toBe("request");
+    if (decision?.decision !== "request") throw new Error("Expected request decision");
+    expect(highlightSpans("ls xx; git commit -m x", decision.prompt?.highlight ?? [])).toEqual([
+      { start: 7, end: 10 },
+      { start: 11, end: 17 },
+    ]);
+  });
+  it("includes every matched subcommand token in the identity span", async () => {
+    const decision = await matchCommand({
+      program: "gh",
+      subcommands: ["issue", "create"],
+      onMatch: () => request(),
+    })(bash("ls; gh issue create --title x"));
+
+    if (decision?.decision !== "request") throw new Error("Expected request decision");
+    expect(
+      highlightSpans("ls; gh issue create --title x", decision.prompt?.highlight ?? []),
+    ).toEqual([
+      { start: 4, end: 6 },
+      { start: 7, end: 12 },
+      { start: 13, end: 19 },
+    ]);
+  });
+
+  it("merges the hook's own highlight additively with the matched identity", async () => {
+    const decision = await matchCommand({
+      program: "git",
+      subcommands: ["commit"],
+      onMatch: () => request({ highlight: "x" }),
+    })(bash("git commit -m x"));
+
+    if (decision?.decision !== "request") throw new Error("Expected request decision");
+    expect(highlightSpans("git commit -m x", decision.prompt?.highlight ?? [])).toEqual([
+      { start: 0, end: 3 },
+      { start: 4, end: 10 },
+      { start: 14, end: 15 },
+    ]);
+  });
+
+  it("leaves block decisions untouched", async () => {
+    const decision = await matchCommand({
+      program: "git",
+      subcommands: ["push"],
+      onMatch: () => block("not now"),
+    })(bash("git push"));
+
+    expect(decision).toEqual({ decision: "block", reason: "not now" });
+  });
+
+  it("auto-highlights just the program when the spec matches no subcommand", async () => {
+    const decision = await matchCommand({
+      program: "rm",
+      onMatch: () => request(),
+    })(bash("ls xx; rm -rf /tmp/x"));
+
+    if (decision?.decision !== "request") throw new Error("Expected request decision");
+    expect(highlightSpans("ls xx; rm -rf /tmp/x", decision.prompt?.highlight ?? [])).toEqual([
+      { start: 7, end: 9 },
+    ]);
+  });
+
+  it("exposes every matched subcommand token in match.spans", async () => {
+    let captured: CommandMatch | undefined;
+    await matchCommand({
+      program: "gh",
+      subcommands: ["issue", "create"],
+      onMatch: (match) => {
+        captured = match;
+        return request();
+      },
+    })(bash("gh issue create"));
+
+    expect(captured?.spans.map((span) => ({ start: span.start, end: span.end }))).toEqual([
+      { start: 0, end: 2 },
+      { start: 3, end: 8 },
+      { start: 9, end: 15 },
+    ]);
   });
 });

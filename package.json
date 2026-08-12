@@ -1,5 +1,5 @@
 {
-  "name": "pi-permission-lsz",
+  "name": "@rianico/pi-permission-lsz",
   "version": "0.1.0",
   "type": "module",
   "description": "Pi extension package for user, project, and package-level tool permission hooks",

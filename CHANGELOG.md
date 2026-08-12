@@ -14,7 +14,7 @@ Absorbs the rtk command rewriting (previously a separate user extension) into th
 
 ### Changed
 
-- Package renamed to `pi-permission-lsz` (self-maintained fork of `@thurstonsand/pi-permissions`); permission modules now import `pi-permission-lsz`.
+- Package renamed to `@rianico/pi-permission-lsz` (self-maintained fork of `@thurstonsand/pi-permissions`); permission modules now import `@rianico/pi-permission-lsz`.
 
 ## 0.10.0
 

@@ -209,7 +209,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getPermissionModuleAliases(): Record<string, string> {
   return {
-    "pi-permission-lsz": fileURLToPath(new URL("./index.ts", import.meta.url)),
+    "@rianico/pi-permission-lsz": fileURLToPath(new URL("./index.ts", import.meta.url)),
   };
 }
 

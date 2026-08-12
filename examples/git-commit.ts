@@ -1,4 +1,4 @@
-import { matchTool, type PermissionsAPI, request } from "pi-permission-lsz";
+import { matchTool, type PermissionsAPI, request } from "@rianico/pi-permission-lsz";
 
 const GIT_COMMIT = /\bgit commit\b/;
 

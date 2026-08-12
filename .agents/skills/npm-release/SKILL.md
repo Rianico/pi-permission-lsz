@@ -5,7 +5,7 @@ description: Prepare, tag, publish, and verify an npm release for this repo. Use
 
 # npm Release
 
-Use this skill when preparing and publishing a new release for `pi-permission-lsz`.
+Use this skill when preparing and publishing a new release for `@rianico/pi-permission-lsz`.
 
 ## Release model
 
@@ -107,7 +107,7 @@ Confirm npm and git remote state:
 
 ```sh
 VERSION=X.Y.Z
-npm view pi-permission-lsz version dist-tags --json
+npm view @rianico/pi-permission-lsz version dist-tags --json
 git ls-remote --tags origin "v${VERSION}"
 git status --short
 ```

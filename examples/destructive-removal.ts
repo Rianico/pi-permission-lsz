@@ -4,7 +4,7 @@ import {
   type PermissionsAPI,
   request,
   type SimpleCommand,
-} from "pi-permission-lsz";
+} from "@rianico/pi-permission-lsz";
 
 function isDestructiveRemoval(cmd: SimpleCommand): boolean {
   return cmd.programName === "rm"

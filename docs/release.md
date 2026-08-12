@@ -1,6 +1,6 @@
 # Release
 
-`pi-permission-lsz` publishes to npm from GitHub Actions when a stable `v*` tag is pushed.
+`@rianico/pi-permission-lsz` publishes to npm from GitHub Actions when a stable `v*` tag is pushed.
 
 ## Release flow
 

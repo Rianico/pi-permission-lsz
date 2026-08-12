@@ -13,7 +13,7 @@ import {
   matchTool,
   request,
   type PermissionsAPI,
-} from "pi-permission-lsz";
+} from "@rianico/pi-permission-lsz";
 
 const gitCommit = matchCommand({
   program: "git",
@@ -61,7 +61,7 @@ import {
   parseShellCommand,
   request,
   type PermissionsAPI,
-} from "pi-permission-lsz";
+} from "@rianico/pi-permission-lsz";
 
 export default function permissions(api: PermissionsAPI) {
   api.onToolUse({

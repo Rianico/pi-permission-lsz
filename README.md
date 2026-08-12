@@ -1,8 +1,8 @@
-# pi-permission-lsz
+# @rianico/pi-permission-lsz
 
 > **Thanks to [@thurstonsand](https://github.com/thurstonsand) and the original [pi-permissions](https://github.com/thurstonsand/pi-permissions) project.** This is a self-maintained fork of that excellent permission-gate design for Pi — all the core gating machinery, prompt UX, and authoring tooling come from the original.
 
-`pi-permission-lsz` adds a permissions gate for Pi tool calls. You can write small TypeScript modules that inspect a pending tool call and either let it pass, ask the approver, or block it before it runs.
+`@rianico/pi-permission-lsz` adds a permissions gate for Pi tool calls. You can write small TypeScript modules that inspect a pending tool call and either let it pass, ask the approver, or block it before it runs.
 
 ## Refinements over pi-permissions
 
@@ -60,7 +60,7 @@ import {
   matchTool,
   request,
   type PermissionsAPI,
-} from "pi-permission-lsz";
+} from "@rianico/pi-permission-lsz";
 
 const GIT_COMMIT = /\bgit commit\b/;
 
@@ -163,7 +163,7 @@ import {
   request,
   type SimpleCommand,
   type PermissionsAPI,
-} from "pi-permission-lsz";
+} from "@rianico/pi-permission-lsz";
 
 function isDestructiveRemoval(cmd: SimpleCommand): boolean {
   return cmd.programName === "rm"
@@ -200,7 +200,7 @@ import {
   block,
   matchTool,
   type PermissionsAPI,
-} from "pi-permission-lsz";
+} from "@rianico/pi-permission-lsz";
 
 export default function permissions(api: PermissionsAPI) {
   api.onToolUse({
@@ -230,7 +230,7 @@ import {
   matchTool,
   request,
   type PermissionsAPI,
-} from "pi-permission-lsz";
+} from "@rianico/pi-permission-lsz";
 
 export default function permissions(api: PermissionsAPI) {
   api.onToolUse({

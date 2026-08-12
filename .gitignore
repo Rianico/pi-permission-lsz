@@ -2,3 +2,6 @@ node_modules/
 .DS_Store
 
 .claude/worktrees
+
+# pi subagent artifacts (not project permissions)
+.pi/subagents/

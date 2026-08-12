@@ -327,6 +327,32 @@ You can also toggle all currently loaded permissions via `Alt+P`, customizable i
 
 Run `/reload` after changing settings.
 
+## rtk command rewriting
+
+Bash commands can be rewritten with `rtk` **after** the permission gate has approved them: the gate always evaluates and prompts on the **original** command, and the rewrite is applied to the command that actually runs. This keeps the prompts accurate (no `rtk` prefix in the detail or highlights) while retaining the token savings of `rtk rewrite`.
+
+- Requires `rtk >= 0.23.0` in `PATH` (the version that introduced `rtk rewrite`). If rtk is missing or too old, rewriting is disabled with a one-time warning — permission gates are unaffected.
+- Rewrites are fail-open: a timeout, kill, or rtk error leaves the original command unchanged and never blocks execution.
+- Repeated identical commands are cached (bounded FIFO, 500 entries), and parallel identical calls share one rtk spawn.
+- Non-bash tool calls are never rewritten. A command that already starts with `rtk` is never re-rewritten.
+- `RTK_DISABLED=1` in the environment disables rewriting (keeping the gates active), matching the previous standalone rtk extension.
+
+Configure in `~/.pi/agent/settings.json`:
+
+```json
+{
+  "permissions": {
+    "rtk": {
+      "enabled": true,
+      "timeoutMs": 2000
+    }
+  }
+}
+```
+
+- `enabled` (default `true`): master switch for rewriting.
+- `timeoutMs` (default `2000`): subprocess timeout for each `rtk rewrite` call.
+
 ## Development
 
 This repo uses mise for local commands.

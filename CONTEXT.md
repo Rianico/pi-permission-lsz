@@ -24,3 +24,7 @@
 - Program: The effective executable of a simple command, determined after skipping wrappers and variable assignments
 - Wrapper: A program whose purpose is to run its argument as a command (e.g. `command`, `sudo`, `env`, `xargs`); skipped when determining the program
 - Subcommand: The first non-flag argument of a simple command, after skipping flags that consume a value (e.g. `add` in `git -C /repo add`)
+- rtk: An external CLI (`rtk rewrite`) that rewrites bash commands to token-saving equivalents; the single source of rewrite rules. Required `>= 0.23.0`.
+- Original command: The bash command as the agent wrote it; what permission hooks evaluate and the prompt shows
+- Rewrite: The rtk transformation applied to the final command after the gate approves (allow / edit / don't-ask-again) or when no hook matched; never applied to rejected or blocked calls, and never to non-bash tools
+- Fail-open: Rewriting's failure mode — a missing/too-old rtk binary, timeout, kill, or error disables only the rewriting, never the permission gates, and never blocks execution

@@ -51,6 +51,7 @@ describe("runtime hook notifications", () => {
       } as never,
       { hooks, enablement: {} },
       { discardOutstandingNotes: () => undefined, consumeForToolResult: () => undefined } as never,
+      { rewrite: async () => null },
     );
 
     const ctx = {

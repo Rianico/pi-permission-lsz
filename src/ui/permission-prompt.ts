@@ -47,6 +47,10 @@ type EditSession = { original: string; editor: Editor };
 
 const EMPTY_COMMAND_WARNING = "An empty command achieves nothing";
 const NUMBER_KEYS: readonly KeyId[] = ["1", "2", "3"];
+// The prompt stays compact: never taller than 61.8% of the terminal, so the
+// transcript stays visible while the approver decides. The detail window is the
+// prompt's only flexible element, so it absorbs the cap.
+const MAX_DIALOG_HEIGHT_RATIO = 0.618;
 
 function padRight(content: string, width: number): string {
   return content + " ".repeat(Math.max(0, width - visibleWidth(content)));
@@ -206,22 +210,31 @@ class PermissionPromptOverlay implements Focusable {
     const row = (line: string) => `${border("│")} ${padRight(line, contentWidth)} ${border("│")}`;
 
     // The off-screen tag pins to the bottom-left so it never jumps around;
-    // only the arrows change with scroll position.
+    // only the arrows change with scroll position. It is drawn accent-bold so
+    // hidden content can't be missed against the muted border; the fill to its
+    // right stays in the border color.
     const offscreen = [above > 0 ? `↑ ${above}` : "", below > 0 ? `↓ ${below}` : ""]
       .filter(Boolean)
       .join(" ");
+    const offscreenTag = offscreen
+      ? this.theme.fg("accent", this.theme.bold(`─ ${offscreen} more `))
+      : "";
 
     return [
       edge(`─ ${this.view.toolName} `, "╭", "╮"),
       ...lines.map(row),
-      edge(offscreen ? `─ ${offscreen} more ` : "", "╰", "╯"),
+      offscreenTag
+        ? `${border("╰")}${offscreenTag}${border("─".repeat(Math.max(0, boxWidth - 2 - visibleWidth(offscreenTag))) + "╯")}`
+        : edge("", "╰", "╯"),
     ];
   }
 
   // The prompt replaces pi's editor at the bottom of the screen, so a body
   // taller than the terminal pushes the options and legend out of the viewport.
   // Window the body to what fits — everything around it stays pinned — and let
-  // f/b page through the rest.
+  // f/b page through the rest. The window also honors
+  // MAX_DIALOG_HEIGHT_RATIO, keeping the whole prompt within that fraction of
+  // the terminal so the conversation above stays visible.
   // TODO: pi 0.84.0's fullscreen TUI mode routes mouse-wheel events to
   // ScrollView components under the pointer. Once on ≥0.84.0, consider
   // rebuilding the detail window as a ScrollView (overscroll "contain") so the
@@ -231,7 +244,18 @@ class PermissionPromptOverlay implements Focusable {
     pinnedLines: number,
   ): { lines: string[]; above: number; below: number } {
     const borderAndMargin = 4;
-    const available = Math.max(3, this.tui.terminal.rows - pinnedLines - borderAndMargin);
+    // The whole prompt (pinned skeleton + detail window + frame) must stay
+    // within MAX_DIALOG_HEIGHT_RATIO of the terminal. pinnedLines already
+    // counts the detail box's edge lines, so the window gets the leftover minus
+    // the two frame rows. The floor keeps at least a few detail lines on
+    // terminals too short to fit the fixed skeleton (title, header, options,
+    // legend) at the cap — there the skeleton wins, or the options and legend
+    // would clip off-screen.
+    const heightCap = Math.floor(this.tui.terminal.rows * MAX_DIALOG_HEIGHT_RATIO);
+    const available = Math.max(
+      3,
+      Math.min(this.tui.terminal.rows - pinnedLines - borderAndMargin, heightCap - pinnedLines - 2),
+    );
 
     if (body.length <= available) {
       this.bodyScroll = 0;

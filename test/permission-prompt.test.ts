@@ -36,7 +36,7 @@ type Harness = {
 
 function mount(
   editable?: { command: string },
-  opts?: { highlight?: PermissionHighlight },
+  opts?: { highlight?: PermissionHighlight; rows?: number },
 ): Harness {
   let overlay: Overlay | undefined;
   let result: PermissionGateResult | undefined;
@@ -49,7 +49,7 @@ function mount(
   };
   const tui = {
     requestRender() {},
-    terminal: { rows: 40, cols: 80 },
+    terminal: { rows: opts?.rows ?? 40, cols: 80 },
     stop() {},
     start() {},
   };
@@ -323,12 +323,14 @@ describe("permission prompt body scrolling", () => {
     const h = mount({ command: longCommand });
     h.render(); // establish the window before scrolling
 
-    h.type("f");
+    // The detail window is only a few lines under the 61.8% height cap, so
+    // reaching the tail takes many f presses; the scroll clamps at the end.
+    h.type(...Array.from({ length: 40 }, () => "f"));
     const scrolled = h.render().join("\n");
     expect(scrolled).toContain("TAIL_MARKER");
     expect(scrolled).toMatch(/↑ \d+/);
 
-    h.type("b");
+    h.type(...Array.from({ length: 40 }, () => "b"));
     const back = h.render().join("\n");
     expect(back).not.toContain("TAIL_MARKER");
     expect(back).toMatch(/↓ \d+ more/);
@@ -351,6 +353,38 @@ describe("permission prompt body scrolling", () => {
     h.type(KEY.tab, "f", "b", KEY.enter);
     await flush();
     expect(h.result()).toEqual({ kind: "allow", note: "fb" });
+  });
+
+  it("caps the whole prompt at 61.8% of a tall terminal", () => {
+    const h = mount({ command: longCommand }, { rows: 60 });
+    const lines = h.render();
+    // 1-line header + 3 options: 13 skeleton lines + 22 window + 2 frame = 37,
+    // exactly 61.8% of the 60-row terminal.
+    expect(lines.length).toBe(Math.floor(60 * 0.618));
+    const text = lines.join("\n");
+    expect(text).toContain("Authorize");
+    expect(text).toContain("↑↓ select");
+    expect(text).toContain("f/b scroll");
+  });
+
+  it("keeps the natural height when the body fits under the cap", () => {
+    const h = mount({ command: "git commit -m hi" }, { rows: 60 });
+    const text = h.render().join("\n");
+    expect(text).toContain("git commit -m hi");
+    expect(text).not.toContain("f/b scroll");
+    expect(text).not.toContain("more");
+  });
+
+  it("keeps the options and legend usable on terminals too short for the cap", () => {
+    const h = mount({ command: longCommand }, { rows: 24 });
+    const lines = h.render();
+    const text = lines.join("\n");
+    // 61.8% of 24 rows can't fit the fixed skeleton, so the prompt falls back to
+    // its minimum: 13 skeleton + 3 detail lines + 2 frame, options intact.
+    expect(lines.length).toBe(18);
+    expect(text).toContain("Authorize");
+    expect(text).toContain("↑↓ select");
+    expect(text).toContain("f/b scroll");
   });
 });
 

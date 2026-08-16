@@ -219,13 +219,12 @@ class PermissionPromptOverlay implements Focusable {
     const offscreenTag = offscreen
       ? this.theme.fg("accent", this.theme.bold(`─ ${offscreen} more `))
       : "";
+    const fill = "─".repeat(Math.max(0, boxWidth - 2 - visibleWidth(offscreenTag)));
 
     return [
       edge(`─ ${this.view.toolName} `, "╭", "╮"),
       ...lines.map(row),
-      offscreenTag
-        ? `${border("╰")}${offscreenTag}${border("─".repeat(Math.max(0, boxWidth - 2 - visibleWidth(offscreenTag))) + "╯")}`
-        : edge("", "╰", "╯"),
+      offscreenTag ? `${border("╰")}${offscreenTag}${border(`${fill}╯`)}` : edge("", "╰", "╯"),
     ];
   }
 
@@ -420,6 +419,19 @@ class PermissionPromptOverlay implements Focusable {
       return;
     }
 
+    // f/b page through the detail; shift+up/down step it one line at a time.
+    // Shifted arrows decode from the terminal's legacy shift sequences (ESC [ a / b)
+    // or CSI-u when the terminal sends those.
+    if (this.bodyPageSize > 0 && matchesKey(data, "shift+up")) {
+      this.scrollBodyBy(-1, 1);
+      return;
+    }
+
+    if (this.bodyPageSize > 0 && matchesKey(data, "shift+down")) {
+      this.scrollBodyBy(1, 1);
+      return;
+    }
+
     if (matchesKey(data, "tab")) {
       this.tabUsed = true;
       this.editing = true;
@@ -448,10 +460,10 @@ class PermissionPromptOverlay implements Focusable {
     }
   }
 
-  private scrollBodyBy(direction: 1 | -1): void {
+  private scrollBodyBy(direction: 1 | -1, lines = this.bodyPageSize): void {
     this.bodyScroll = Math.min(
       this.bodyMaxScroll,
-      Math.max(0, this.bodyScroll + direction * this.bodyPageSize),
+      Math.max(0, this.bodyScroll + direction * lines),
     );
     this.tui.requestRender();
   }
@@ -639,7 +651,9 @@ class PermissionPromptOverlay implements Focusable {
 
   private renderSelectLegend(): string[] {
     const firstLine = [hint(this.theme, "↑↓", "select")];
-    if (this.bodyPageSize > 0) firstLine.push(hint(this.theme, "f/b", "scroll"));
+    if (this.bodyPageSize > 0) {
+      firstLine.push(hint(this.theme, "f/b", "scroll"), hint(this.theme, "shift+↑↓", "line"));
+    }
     firstLine.push(
       hint(this.theme, "enter", "confirm"),
       hint(this.theme, "ctrl+s", "don't ask again"),

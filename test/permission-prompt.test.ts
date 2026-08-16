@@ -13,6 +13,8 @@ const KEY = {
   shiftTab: "\x1b[Z",
   up: "\x1b[A",
   down: "\x1b[B",
+  shiftUp: "\x1b[a",
+  shiftDown: "\x1b[b",
   backspace: "\x7f",
   ctrlR: "\x12",
   ctrlG: "\x07",
@@ -314,6 +316,7 @@ describe("permission prompt body scrolling", () => {
     expect(text).toContain("Authorize");
     expect(text).toContain("↑↓ select");
     expect(text).toContain("f/b scroll");
+    expect(text).toContain("shift+↑↓");
     expect(text).toContain("↓");
     expect(text).toContain("more");
     expect(text).not.toContain("TAIL_MARKER");
@@ -353,6 +356,34 @@ describe("permission prompt body scrolling", () => {
     h.type(KEY.tab, "f", "b", KEY.enter);
     await flush();
     expect(h.result()).toEqual({ kind: "allow", note: "fb" });
+  });
+
+  it("scrolls the detail one line at a time with shift+up/down", () => {
+    const h = mount({ command: longCommand });
+    h.render();
+
+    h.type(KEY.shiftDown);
+    expect(h.render().join("\n")).toMatch(/↑ 1/);
+
+    h.type(KEY.shiftDown);
+    expect(h.render().join("\n")).toMatch(/↑ 2/);
+
+    h.type(KEY.shiftUp);
+    expect(h.render().join("\n")).toMatch(/↑ 1/);
+
+    // paging still works from a line-scrolled position
+    h.type("b");
+    expect(h.render().join("\n")).not.toMatch(/↑ \d+/);
+  });
+
+  it("keeps shift+up/down inert when the body fits", async () => {
+    const h = mount({ command: "git commit -m hi" });
+    h.render();
+    h.type(KEY.shiftUp, KEY.shiftDown);
+    const text = h.render().join("\n");
+    expect(text).not.toContain("more");
+    expect(text).not.toContain("shift+↑↓");
+    expect(h.result()).toBeUndefined();
   });
 
   it("caps the whole prompt at 61.8% of a tall terminal", () => {

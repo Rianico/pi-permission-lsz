@@ -386,6 +386,30 @@ describe("permission prompt body scrolling", () => {
     expect(h.result()).toBeUndefined();
   });
 
+  it("ends the last visible line with an ellipsis while content hides below", () => {
+    const h = mount({ command: longCommand });
+    const lines = h.render();
+    const bottomEdge = lines.findIndex((line) => line.includes("╰"));
+    const lastContent = lines[bottomEdge - 1] ?? "";
+    // rows carry both the outer frame and the inner box borders: `│ │ … │ │`
+    const stripped = lastContent.replace(/^│ │ /, "").replace(/ │ │$/, "").trimEnd();
+    expect(stripped.endsWith("...")).toBe(true);
+    // the border tag below still reports the hidden line count
+    expect(lines[bottomEdge]).toMatch(/↓ \d+ more/);
+  });
+
+  it("drops the ellipsis once the window reaches the end of the detail", () => {
+    const h = mount({ command: longCommand });
+    h.render();
+    h.type(...Array.from({ length: 40 }, () => "f"));
+    const lines = h.render();
+    const bottomEdge = lines.findIndex((line) => line.includes("╰"));
+    const lastContent = lines[bottomEdge - 1] ?? "";
+    const stripped = lastContent.replace(/^│ │ /, "").replace(/ │ │$/, "").trimEnd();
+    expect(stripped.endsWith("...")).toBe(false);
+    expect(lastContent).toContain("TAIL_MARKER");
+  });
+
   it("caps the whole prompt at 61.8% of a tall terminal", () => {
     const h = mount({ command: longCommand }, { rows: 60 });
     const lines = h.render();

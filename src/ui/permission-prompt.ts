@@ -13,6 +13,7 @@ import {
   type KeyId,
   matchesKey,
   type TUI,
+  truncateToWidth,
   visibleWidth,
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
@@ -221,9 +222,18 @@ class PermissionPromptOverlay implements Focusable {
       : "";
     const fill = "─".repeat(Math.max(0, boxWidth - 2 - visibleWidth(offscreenTag)));
 
+    // While more content hides below, the last visible line ends with an
+    // ellipsis so the truncation announces itself where the eye is reading;
+    // the border tag below still carries the exact line count.
+    const lastLine = lines[lines.length - 1] ?? "";
+    const visible =
+      below > 0 && lines.length > 0
+        ? [...lines.slice(0, -1), `${truncateToWidth(lastLine, contentWidth - 3, "")}...`]
+        : lines;
+
     return [
       edge(`─ ${this.view.toolName} `, "╭", "╮"),
-      ...lines.map(row),
+      ...visible.map(row),
       offscreenTag ? `${border("╰")}${offscreenTag}${border(`${fill}╯`)}` : edge("", "╰", "╯"),
     ];
   }

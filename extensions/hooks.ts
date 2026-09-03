@@ -105,6 +105,37 @@ export function registerPermissionHooks(
     }
 
     const prompt = formatHumanFacingPermissionPrompt(promptInput);
+    // ------------------------------------------------------------------
+    // Compatibility: host-specific "blocked" signaling.
+    // ------------------------------------------------------------------
+    // Pi >=0.84.4 automatically emits the *generic* extension events
+    //   `ui_prompt_start` / `ui_prompt_end` around every `ctx.ui.*`
+    //   call (see `ExtensionRunner.wrapUIPromptContext` in pi PR #8355,
+    //   fixing issue #5329). Any host that has migrated to those events
+    //   (cmux already, future herdr) gets "waiting for user" for free —
+    //   the extension does NOT need to emit them manually. `showPermissionGate`
+    //   uses `ctx.ui.custom`, so it triggers the generic events automatically.
+    //
+    // Herdr's bundled Pi integration <=v8 (installed via
+    //   `herdr integration install pi` -> `~/.pi/agent/extensions/herdr-agent-state.ts`)
+    //   still listens to the *private* EventBus channel `herdr:blocked`
+    //   ( `pi.events.on("herdr:blocked", ...)` ), not the generic events.
+    //   We emit it here for backward-compat so Herdr shows `blocked` instead
+    //   of `working` while the permission prompt is open.
+    //
+    // TODO(herdr-generic-migration): Remove the two `herdr:blocked` emits
+    //   (and the legacy `glimpseui:attention:*` emits below) once the
+    //   minimum supported Herdr Pi integration is >= v9 / a version that
+    //   listens to `ui_prompt_start`/`ui_prompt_end`. At that point the
+    //   only required signal is Pi's automatic wrapping — no manual emit
+    //   needed. Search for `COMPAT:herdr-private-event` to find all sites.
+    //   Also see `peerDependencies` bump to `>=0.84.4` required for the
+    //   generic events to exist.
+    // COMPAT:herdr-private-event (remove with TODO above) + COMPAT:glimpseui-private-event
+    pi.events.emit("herdr:blocked", {
+      active: true,
+      label: hook.name,
+    });
     pi.events.emit("glimpseui:attention:request", {
       attentionId: event.toolCallId,
       label: hook.name,
@@ -131,6 +162,10 @@ export function registerPermissionHooks(
         ...(editable ? { editable } : {}),
       });
     } finally {
+      // COMPAT:herdr-private-event (remove with TODO above) + COMPAT:glimpseui-private-event
+      pi.events.emit("herdr:blocked", {
+        active: false,
+      });
       pi.events.emit("glimpseui:attention:resolve", {
         attentionId: event.toolCallId,
       });

@@ -114,7 +114,11 @@ export function permissionToolInputFromToolCall(
   }
 
   if (isToolCallEventType("edit", event)) {
-    const pathFields = requiredPathFields(event.input.path, cwd);
+    const rawPath =
+      (event.input as Record<string, unknown>).path ??
+      (event.input as Record<string, unknown>).file ??
+      (event.input as Record<string, unknown>).file_path;
+    const pathFields = requiredPathFields(rawPath as string, cwd);
     return { toolName: "edit", input: event.input, ...pathFields };
   }
 

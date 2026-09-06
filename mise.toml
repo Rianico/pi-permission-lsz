@@ -8,7 +8,7 @@ enter = "mise bootstrap --yes --quiet"
 
 [tools]
 actionlint = "1.7.12"
-node = "lts"
+node = "26"
 "npm:renovate" = { version = "44.14.8", allow_builds = [
   "re2",
 ], trust_policy_excludes = [

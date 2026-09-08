@@ -20,7 +20,6 @@ import {
   formatHumanFacingSessionDisableNotification,
   type PermissionPromptInput,
 } from "../src/presentation.js";
-import type { Rtk } from "../src/rtk.js";
 import { restorePermissionsState } from "../src/state.js";
 import { permissionToolInputFromToolCall } from "../src/tool-input.js";
 import { type PermissionGateResult, showPermissionGate } from "../src/ui/permission-prompt.js";
@@ -32,7 +31,6 @@ export function registerPermissionHooks(
   pi: ExtensionAPI,
   state: PermissionsRuntimeState,
   pendingApprovalNotes: PendingApprovalNotes,
-  rtk: Rtk,
 ): void {
   const notifiedHookFailures = new Set<string>();
 
@@ -75,10 +73,7 @@ export function registerPermissionHooks(
       },
     );
     notifyHookFailures(ctx, evaluationResult.failures, notifiedHookFailures);
-    if (!evaluationResult.evaluation) {
-      await rewriteBashCommand(event, rtk, ctx.signal);
-      return undefined;
-    }
+    if (!evaluationResult.evaluation) return undefined;
 
     const { hook, input, decision } = evaluationResult.evaluation;
 
@@ -185,32 +180,8 @@ export function registerPermissionHooks(
       ctx.ui.notify(formatHumanFacingSessionDisableNotification(hook.name), "warning");
     }
 
-    if (outcome) return outcome;
-
-    // The approver allowed the call (or edited the command): apply the rtk
-    // rewrite to the final command now, after the verdict, so the prompt
-    // always showed the original.
-    await rewriteBashCommand(event, rtk, ctx.signal);
-    return undefined;
+    return outcome;
   });
-}
-
-async function rewriteBashCommand(
-  event: ToolCallEvent,
-  rtk: Rtk,
-  signal: AbortSignal | undefined,
-): Promise<void> {
-  const bashEvent = isToolCallEventType("bash", event) ? event : undefined;
-  if (!bashEvent) return;
-
-  const cmd = bashEvent.input.command;
-  if (typeof cmd !== "string" || cmd.trim() === "") return;
-  if (cmd.startsWith("rtk ")) return;
-
-  const rewritten = await rtk.rewrite(cmd, signal);
-  if (rewritten && rewritten !== cmd) {
-    bashEvent.input.command = rewritten;
-  }
 }
 
 function notifyHookFailures(

@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { PendingApprovalNotes } from "../src/pending-approvals.js";
-import { createRtk } from "../src/rtk.js";
 import { PERMISSIONS_STATE_TYPE } from "../src/state.js";
 import { renderPermissionsEntry } from "../src/ui/permissions-entry.js";
 import { registerPermissionsCommand } from "./command.js";
@@ -15,11 +14,10 @@ export default function permissions(pi: ExtensionAPI): void {
     hooks: [],
   };
   const settings = loadSettings();
-  const rtk = createRtk((program, args, options) => pi.exec(program, args, options), settings.rtk);
   const pendingApprovalNotes = new PendingApprovalNotes();
 
   pi.registerEntryRenderer(PERMISSIONS_STATE_TYPE, renderPermissionsEntry);
   registerPermissionsCommand(pi, state);
   registerPermissionsKeybinding(pi, state, settings);
-  registerPermissionHooks(pi, state, pendingApprovalNotes, rtk);
+  registerPermissionHooks(pi, state, pendingApprovalNotes);
 }

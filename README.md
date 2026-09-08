@@ -4,15 +4,6 @@
 
 `@rianico/pi-permission-lsz` adds a permissions gate for Pi tool calls. You can write small TypeScript modules that inspect a pending tool call and either let it pass, ask the approver, or block it before it runs.
 
-## Refinements over pi-permissions
-
-- **rtk command rewriting absorbed into the gate.** The standalone rtk extension rewrote every bash command to `rtk <command>` *before* the hooks evaluated it, so the gate saw program `rtk`, no hook matched, and every guard silently stopped firing. Here the gate always evaluates and prompts on the **original** command, and the `rtk` rewrite is applied only **after** the approver's verdict (allow / edit / don't-ask-again, or ungated calls). Rejected or blocked calls are never rewritten.
-- **Configurable via settings.** `permissions.rtk` in `~/.pi/agent/settings.json` (`enabled`, `timeoutMs`), plus the `RTK_DISABLED=1` env override. If rtk is missing or too old (`>= 0.23.0` required), rewriting disables with a one-time warning and the gates are unaffected.
-- **Fail-open and cached.** A bounded 500-entry FIFO memo plus in-flight dedupe mean repeated and parallel identical commands cost one rtk spawn each; a timeout, kill, or rtk error leaves the original command untouched and never blocks execution.
-- **Prompt accuracy.** The detail and highlights show the command the approver actually cares about — no `rtk` prefix.
-- **Runs from a single source.** No node_modules patches, no wrapper entries in the shell parser's shared defaults — `pi update` can't wipe the rtk integration.
-- **Test coverage.** 27 new tests (rtk probe/rewrite/cache/dedupe + gate flow integration) on top of the upstream suite.
-
 ## Install
 
 ```bash
@@ -339,32 +330,6 @@ You can also toggle all currently loaded permissions via `Alt+P`, customizable i
 ```
 
 Run `/reload` after changing settings.
-
-## rtk command rewriting
-
-Bash commands can be rewritten with `rtk` **after** the permission gate has approved them: the gate always evaluates and prompts on the **original** command, and the rewrite is applied to the command that actually runs. This keeps the prompts accurate (no `rtk` prefix in the detail or highlights) while retaining the token savings of `rtk rewrite`.
-
-- Requires `rtk >= 0.23.0` in `PATH` (the version that introduced `rtk rewrite`). If rtk is missing or too old, rewriting is disabled with a one-time warning — permission gates are unaffected.
-- Rewrites are fail-open: a timeout, kill, or rtk error leaves the original command unchanged and never blocks execution.
-- Repeated identical commands are cached (bounded FIFO, 500 entries), and parallel identical calls share one rtk spawn.
-- Non-bash tool calls are never rewritten. A command that already starts with `rtk` is never re-rewritten.
-- `RTK_DISABLED=1` in the environment disables rewriting (keeping the gates active), matching the previous standalone rtk extension.
-
-Configure in `~/.pi/agent/settings.json`:
-
-```json
-{
-  "permissions": {
-    "rtk": {
-      "enabled": true,
-      "timeoutMs": 2000
-    }
-  }
-}
-```
-
-- `enabled` (default `true`): master switch for rewriting.
-- `timeoutMs` (default `2000`): subprocess timeout for each `rtk rewrite` call.
 
 ## Development
 

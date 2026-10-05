@@ -1,0 +1,6 @@
+# pnpm 12 requires explicit approval before running a dependency's build
+# scripts. pi installs this package with `pnpm install --prod`, and
+# tree-sitter-bash ships a `node-gyp-build` install script, so without this
+# entry the install aborts with ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  tree-sitter-bash: true

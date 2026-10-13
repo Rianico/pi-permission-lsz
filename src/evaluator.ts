@@ -52,3 +52,48 @@ export async function evaluatePermissionHooks(
 
   return { failures };
 }
+
+export interface PermissionTargetsInput {
+  cwd: string;
+  tools: readonly PermissionToolInput[];
+}
+
+/**
+ * Judge every target one tool call names, letting a block anywhere outrank a request
+ * anywhere.
+ *
+ * WHY the full scan: a tool call is atomic — the host runs it whole or not at all — and
+ * `read` accepts a batch payload (`files: [...]`). Returning the first decision in
+ * request order would let an "ask" on `files[0]` mask a deny rule on `files[2]`: the
+ * user approves the prompt shown for the first file and the whole batch, denied file
+ * included, runs. Scanning every target before deciding makes "blocked if any file
+ * matches a deny rule" hold whatever the order. Single-target calls keep the
+ * short-circuit path — and its hook-priority meaning — unchanged.
+ */
+export async function evaluatePermissionTargets(
+  hooks: readonly RuntimePermissionHook[],
+  input: PermissionTargetsInput,
+): Promise<PermissionEvaluationResult> {
+  const [first, ...rest] = input.tools;
+  if (rest.length === 0) {
+    if (!first) return { failures: [] };
+    return evaluatePermissionHooks(hooks, { cwd: input.cwd, tool: first });
+  }
+
+  const failures: PermissionHookFailure[] = [];
+  let blocked: PermissionEvaluation | undefined;
+  let requested: PermissionEvaluation | undefined;
+
+  for (const tool of input.tools) {
+    const result = await evaluatePermissionHooks(hooks, { cwd: input.cwd, tool });
+    failures.push(...result.failures);
+
+    const evaluation = result.evaluation;
+    if (!evaluation) continue;
+    if (evaluation.decision.decision === "block") blocked ??= evaluation;
+    else requested ??= evaluation;
+  }
+
+  const evaluation = blocked ?? requested;
+  return evaluation ? { evaluation, failures } : { failures };
+}

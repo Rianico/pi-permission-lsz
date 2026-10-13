@@ -169,3 +169,14 @@ export function formatAgentFacingRejectionReason(hookName: string, note?: string
 The user doesn't want to proceed with this tool use, and it was rejected. To proceed, the user said:
 ${note}`;
 }
+
+/**
+ * The reason the gate itself refuses a call — no hook decided this, so the text must
+ * name the limitation rather than a rule, and must not read as a user decision.
+ */
+export function formatAgentFacingPayloadReason(toolName: string, error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `Blocked ${toolName}: the permission gate could not read a file path from this payload, so the call was denied without being executed.
+
+${detail}`;
+}

@@ -6,11 +6,12 @@ import {
   type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
 import { getEnabledPermissionHooks, setPermissionHookEnabled } from "../src/enablement.js";
-import { evaluatePermissionHooks, type PermissionHookFailure } from "../src/evaluator.js";
+import { evaluatePermissionTargets, type PermissionHookFailure } from "../src/evaluator.js";
 import type { PendingApprovalNotes } from "../src/pending-approvals.js";
 import {
   formatAgentFacingBlockReason,
   formatAgentFacingNoUiReason,
+  formatAgentFacingPayloadReason,
   formatAgentFacingRejectionReason,
   formatAgentFacingToolResultNote,
   formatHumanFacingApprovalNotification,
@@ -21,7 +22,7 @@ import {
   type PermissionPromptInput,
 } from "../src/presentation.js";
 import { restorePermissionsState } from "../src/state.js";
-import { permissionToolInputFromToolCall } from "../src/tool-input.js";
+import { type PermissionToolInput, permissionToolInputsFromToolCall } from "../src/tool-input.js";
 import { type PermissionGateResult, showPermissionGate } from "../src/ui/permission-prompt.js";
 import { syncPermissionsStatus } from "../src/ui/status.js";
 import { loadRuntimeHooks, notifyLoadErrors, type PermissionsRuntimeState } from "./runtime.js";
@@ -65,12 +66,18 @@ export function registerPermissionHooks(
   });
 
   pi.on("tool_call", async (event, ctx) => {
-    const evaluationResult = await evaluatePermissionHooks(
+    let tools: PermissionToolInput[];
+    try {
+      tools = permissionToolInputsFromToolCall(event, ctx.cwd);
+    } catch (error) {
+      // Fail closed: a payload whose paths cannot be read cannot be judged, and passing
+      // it through would hand an unevaluated call to the tool.
+      return { block: true, reason: formatAgentFacingPayloadReason(event.toolName, error) };
+    }
+
+    const evaluationResult = await evaluatePermissionTargets(
       getEnabledPermissionHooks(state.hooks, state.enablement),
-      {
-        cwd: ctx.cwd,
-        tool: permissionToolInputFromToolCall(event, ctx.cwd),
-      },
+      { cwd: ctx.cwd, tools },
     );
     notifyHookFailures(ctx, evaluationResult.failures, notifiedHookFailures);
     if (!evaluationResult.evaluation) return undefined;

@@ -109,11 +109,11 @@ export function permissionToolInputFromToolCall(
   }
 
   if (isToolCallEventType("read", event)) {
-    const rawPath =
-      (event.input as Record<string, unknown>).file ??
-      (event.input as Record<string, unknown>).path ??
-      (event.input as Record<string, unknown>).file_path;
-    const pathFields = requiredPathFields(rawPath as string, cwd);
+    // The FIRST target only: `read` may name several files (`files[].file`), and a
+    // gate that judged just this one would miss a deny rule on a later file. Use
+    // `permissionToolInputsFromToolCall` to see every target.
+    const [rawPath] = readTargetPaths(event.input as Record<string, unknown>);
+    const pathFields = requiredPathFields(rawPath, cwd, "read");
     return { toolName: "read", input: event.input, ...pathFields };
   }
 
@@ -122,12 +122,12 @@ export function permissionToolInputFromToolCall(
       (event.input as Record<string, unknown>).path ??
       (event.input as Record<string, unknown>).file ??
       (event.input as Record<string, unknown>).file_path;
-    const pathFields = requiredPathFields(rawPath as string, cwd);
+    const pathFields = requiredPathFields(rawPath, cwd, "edit");
     return { toolName: "edit", input: event.input, ...pathFields };
   }
 
   if (isToolCallEventType("write", event)) {
-    const pathFields = requiredPathFields(event.input.path, cwd);
+    const pathFields = requiredPathFields(event.input.path, cwd, "write");
     return { toolName: "write", input: event.input, ...pathFields };
   }
 
@@ -151,6 +151,53 @@ export function permissionToolInputFromToolCall(
     input: event.input,
     detail: formatUnknownInput(event.input),
   };
+}
+
+/**
+ * Every target a tool call names, in request order.
+ *
+ * WHY a list rather than one input: `read` is a batch tool. pi-better-edit replaces
+ * the builtin `read` and its payload is `files: [{ file }]` — `file`/`path`/`file_path`
+ * are then all absent. A gate that resolves a single scalar path therefore feeds
+ * `undefined` into `path.isAbsolute`, which throws `ERR_INVALID_ARG_TYPE` from inside
+ * the `tool_call` hook; the host reports that as the read tool's own error and nothing
+ * names the offending payload. Callers must evaluate every target, or a batched call
+ * is judged on `files[0]` alone.
+ */
+export function permissionToolInputsFromToolCall(
+  event: ToolCallEvent,
+  cwd: string,
+): PermissionToolInput[] {
+  if (!isToolCallEventType("read", event)) {
+    return [permissionToolInputFromToolCall(event, cwd)];
+  }
+
+  const input = event.input as Record<string, unknown>;
+  return readTargetPaths(input).map((rawPath) => ({
+    toolName: "read" as const,
+    input: event.input,
+    ...requiredPathFields(rawPath, cwd, "read"),
+  }));
+}
+
+/**
+ * The file paths a `read` payload names: the batch `files[].file` form first, then the
+ * legacy single-file keys (`file`, then `path`, then the deprecated `file_path`).
+ */
+function readTargetPaths(input: Record<string, unknown>): unknown[] {
+  const files = input.files;
+  if (Array.isArray(files)) {
+    const paths = files.map((entry) =>
+      typeof entry === "object" && entry !== null
+        ? (entry as Record<string, unknown>).file
+        : undefined,
+    );
+    // An empty `files` array names nothing; fall back to the legacy keys rather than
+    // judging a request with zero targets, which would let it through ungated.
+    if (paths.length > 0) return paths;
+  }
+
+  return [input.file ?? input.path ?? input.file_path];
 }
 
 export function isBashToolInput(tool: PermissionToolInput): tool is BashPermissionToolInput {
@@ -194,18 +241,20 @@ export function isCustomToolInput(tool: PermissionToolInput, toolName: string): 
 }
 
 function requiredPathFields(
-  path: string,
+  path: unknown,
   cwd: string,
+  toolName: string,
 ): {
   detail: string;
   path: string;
   absolutePath: string;
   projectPath?: string;
 } {
-  const resolved = resolveToolPath(path, cwd);
+  const readable = assertReadablePath(path, toolName);
+  const resolved = resolveToolPath(readable, cwd);
   return {
-    detail: path,
-    path,
+    detail: readable,
+    path: readable,
     absolutePath: resolved.absolutePath,
     ...(resolved.projectPath ? { projectPath: resolved.projectPath } : {}),
   };
@@ -230,6 +279,25 @@ function optionalPathFields(
     absolutePath: resolved.absolutePath,
     ...(resolved.projectPath ? { projectPath: resolved.projectPath } : {}),
   };
+}
+
+/**
+ * WHY a guard rather than a cast: payloads arrive as `unknown` because an extension may
+ * replace a builtin tool (pi-better-edit replaces `read`) with a shape this package has
+ * never seen. Feeding that shape's `undefined` to `path.isAbsolute` throws
+ * `ERR_INVALID_ARG_TYPE` *inside* the `tool_call` hook, so the host reports a tool
+ * failure that names no payload and no key. Naming the tool and the received value makes
+ * the gate's refusal legible — and because this throws before any hook runs, it fails
+ * closed.
+ */
+function assertReadablePath(path: unknown, toolName: string): string {
+  if (typeof path !== "string" || path.length === 0) {
+    throw new Error(
+      `No file path in this ${toolName} payload (received ${formatUnknownInput(path)}); ` +
+        "expected a non-empty string. The permission gate cannot judge this call, so it was denied.",
+    );
+  }
+  return path;
 }
 
 function resolveToolPath(
